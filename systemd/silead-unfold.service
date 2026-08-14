@@ -1,0 +1,12 @@
+[Unit]
+Description=Silead touchscreen X-axis unfolder
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/silead-unfold.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

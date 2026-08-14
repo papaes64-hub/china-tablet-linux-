@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Linux Tablet Auto Rotate
+Comment=Screen rotation and tablet mode
+Exec=/usr/local/bin/linux-tablet-autorotate
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3

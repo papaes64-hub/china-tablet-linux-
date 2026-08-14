@@ -1,0 +1,13 @@
+[Unit]
+Description=Silead touchscreen long press to right click
+After=silead-unfold.service
+Requires=silead-unfold.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/silead-longpress.py
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=graphical.target
