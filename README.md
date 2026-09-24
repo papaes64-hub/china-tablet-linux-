@@ -5,7 +5,8 @@
 This is the story of how a no-name Chinese 11.6" convertible tablet
 (board `HJC-BI-11.6-S8`, Silead MSSL1680 touch controller) — whose
 touchscreen was completely dead under Windows and mirrored / "folded" under
-Linux — became a fully working touch device on Linux Mint.
+Linux — became a usable touch device on Linux Mint. The current work is
+improving tablet-mode interaction while keeping the working desktop system.
 
 The real value of this repo is **not a ready-made recipe for one specific
 board** (there are maybe a handful of those owners in the world). It's the
@@ -15,23 +16,56 @@ start with [docs/diagnostics.md](docs/diagnostics.md).
 
 ---
 
-## What works in the end
+## Current status — 24 September 2026
+
+The main device is the **Intel Celeron N4020** tablet. Its current baseline is
+**Linux Mint 22.3 Zena, Cinnamon 6.6.9, X11**. The project Mint image was
+restored, the system was updated, and the owner confirmed that it works after
+rebooting. Touch input is working with the project's Silead correction stack.
+
+Cinnamon's built-in on-screen keyboard has now been tried and the owner
+prefers it to Onboard. The remaining task is integration with tablet mode:
+
+- **Laptop mode:** hide the keyboard and its panel icon.
+- **Tablet mode:** show a keyboard icon on the panel; tapping it should open
+  or hide the keyboard.
+- **No automatic opening on input focus:** spreadsheet cells in LibreOffice
+  should not repeatedly bring up the keyboard.
+
+This behavior is the agreed next change, **not a completed feature**. The
+published `scripts/linux-tablet-autorotate` still calls `onboard_start` from
+`set_tablet_mode`, and Onboard still appears when the owner folds the device.
+The installed script needs to be compared with this repository before the
+migration is applied. Reinstalling the current script does not perform that
+migration.
+
+Linux Mint documents the redesigned native keyboard in its
+[Cinnamon 6.6 release notes](https://linuxmint.com/rel_zena_whatsnew.php).
+
+## Working components and their limits
 
 - **Touchscreen** — accurate response with both finger and stylus in every
   orientation (a nonlinearly "folded" X axis is corrected by a custom
   coordinate handler).
-- **Screen auto-rotation** via the accelerometer, with the touch coordinates
-  rotating together with the screen and the keyboard disabled in tablet mode.
+- **Screen auto-rotation** via the accelerometer, with touch coordinates
+  rotating together with the screen. The published script also switches the
+  physical keyboard and touchpad according to its orientation-to-mode mapping.
 - **Right-click on long press** — otherwise there's no way to reach the context
   menu on a button-less tablet.
-- **Multi-touch gestures** (swipe, zoom) via touchégg.
-- **Kernel pinning** to a fast, stable version — on weak hardware a newer
-  kernel is *not* better (see below).
+- **Gestures** were tested during the project, but a complete gesture profile
+  is not included here. Scrolling, zoom and application behavior still need
+  checking in the current Mint installation.
+
+The published rotation script maps `bottom-up` to laptop mode and the other
+three recognized orientations to tablet mode. It does **not** measure the
+hinge angle using both accelerometers. Later implementations on other
+desktops must not be confused with this particular script.
 
 ## Requirements
 
-- Linux Mint 22.3 (Cinnamon) or another Ubuntu 24.04-based distribution.
-  The general approach also applies to Debian/MX — see notes in the text.
+- Linux Mint 22.3 with **Cinnamon, X11 and systemd** for the installation
+  commands and session script below. The diagnostic method can be reused on
+  other distributions; their desktop and service integration must be adapted.
 - A Silead touch controller (check: `dmesg | grep -i silead`).
 - Packages:
 
@@ -40,6 +74,12 @@ sudo apt install python3-evdev iio-sensor-proxy touchegg
 ```
 
 (tested versions: `python3-evdev 1.7.0`, `iio-sensor-proxy 3.5`, `touchegg 2.0.16`)
+
+These are versions recorded during development, not a fresh inventory of the
+restored system. The current rotation script also calls `xinput`, `xrandr`,
+`setxkbmap`, Cinnamon/Nemo settings and Onboard. `install.sh --deps` only
+installs the three packages listed above; it does not configure gestures or
+complete the keyboard migration.
 
 ## Repository layout
 
@@ -71,6 +111,7 @@ Windows driver).
 
 ```bash
 # 1. Controller firmware
+sudo mkdir -p /lib/firmware/silead
 sudo cp firmware/mssl1680.fw /lib/firmware/silead/mssl1680.fw
 
 # 2. Scripts
@@ -92,6 +133,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now silead-unfold.service silead-longpress.service
 
 # 5. Auto-rotation (runs in the user session, not system-wide)
+mkdir -p ~/.config/autostart
 cp autostart/linux-tablet-autorotate.desktop ~/.config/autostart/
 
 # 6. Reboot
@@ -101,9 +143,12 @@ sudo reboot
 After rebooting, check: finger/stylus taps land precisely, rotating the tablet
 turns the screen and touch together, and a long press produces a right-click.
 
-There's also a helper script: `./install.sh` puts everything in place
-automatically. Run `./install.sh --firmware` only if your hardware is
+There's also a helper script: `bash install.sh` puts the scripts and service
+files in place. Run `bash install.sh --firmware` only if your hardware is
 compatible (see the diagnostics doc).
+
+On an existing project installation, compare and back up the installed scripts
+before running the installer: it overwrites them with the repository copies.
 
 ## Tuning for your own screen
 
@@ -116,27 +161,42 @@ The calibration curves in `silead-unfold.py` (`LEFT_RAW_TO_OUT` /
 `RIGHT_RAW_TO_OUT`) were measured for one specific panel. How to take your own
 is described in [docs/diagnostics.md](docs/diagnostics.md).
 
-## Weak hardware: pin your kernel
+## Kernel changes: record and compare
 
-On low-power tablets (Intel Atom and similar) newer kernels are often **slower**
-than older ones and may pull in buggy drivers (Wi-Fi, in our case). The fix is
-to roll back to a stable kernel and pin it so updates don't bring a "newer" one
-back:
+Earlier experiments included kernel rollback and package holds. That is a
+record of troubleshooting on this device, not evidence that newer kernels
+are generally slower or that every installation should freeze its kernel.
+The running kernel after the latest Mint update has not yet been recorded
+here. Collect the actual state before applying an old workaround:
 
 ```bash
-# see the current kernel
 uname -r
-
-# pin the working kernel and meta-packages (example for 6.8.0-136)
-sudo apt-mark hold linux-image-6.8.0-136-generic linux-headers-6.8.0-136-generic \
-                   linux-image-generic linux-headers-generic linux-generic
-
-# verify
 apt-mark showhold
 ```
 
-For Debian/MX the package name differs (`linux-image-6.12.90+deb13-amd64` and
-the meta-package `linux-image-amd64`) — check `dpkg -l | grep linux-image`.
+Tie any rollback to a reproduced regression and a tested alternative. The old
+`6.8.0-136` example is not a requirement for the current setup.
+
+## Other systems tested during the project
+
+These are results from separate installations on the N4020. This repository
+does not contain a complete installer for each of them.
+
+| System | Recorded result | Current role |
+| --- | --- | --- |
+| antiX, X11/IceWM, runit | Touch, rotation, physical input switching and Onboard worked after a cold start. | Historical working setup; different service integration. |
+| MX based on Debian 13, KDE Plasma 6.3.6, Wayland, SysVinit | Touch, long press, tablet mode, rotation and virtual keyboard worked after a cold start. | Historical working setup; KDE and init scripts differ from Mint. |
+| Ubuntu 26.04.1, GNOME Wayland | Tablet features and startup in both folded and laptop positions were confirmed. | Historical working setup; GNOME integration differs from Mint. |
+| Ubuntu with Waydroid | Android ran, but rotation, window geometry and reliable shared-folder access remained unresolved. | Unfinished experiment. |
+| ChromeOS/Brunch on N4020 | Tested builds had Android/ARC failures, missing sound and an undetected touchscreen. | Not a completed replacement for Mint. |
+| FydeOS on N4020 | After installation, sound, keyboard, touchpad and Google web apps worked; the touchscreen and Android setup remained unresolved. | Unfinished experiment. |
+
+A separate successful ChromeOS/Brunch experiment on an **N95** device is not
+evidence of compatibility with this N4020 tablet.
+
+The current focus is improving Mint's keyboard and touch gestures. Results
+from previous systems remain useful, but each change needs checking in the
+desktop session where it will actually run.
 
 ---
 
