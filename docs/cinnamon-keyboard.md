@@ -2,14 +2,16 @@
 
 This optional migration targets the N4020 project's existing Linux Mint 22.3,
 Cinnamon 6.6.9, X11 installation and its `linux-tablet-autorotate` script.
-It is prepared for testing on the device; the final touch interaction has not
-yet been verified there.
+The owner has tested the mode switching and manual activation on the device
+and confirmed that the logic works. The remaining reported issue is excess
+space reserved around the keyboard in portrait orientation.
 
-The owner confirmed that the unwanted keyboard stopped appearing in laptop
-mode. In tablet mode, Onboard still launches, the native keyboard briefly
-appears on input focus, and no keyboard button has been installed yet.
+Before the migration, Onboard still launched in tablet mode, Cinnamon's
+keyboard briefly appeared on input focus, and no keyboard button was present.
+The migration addressed that behavior; its confirmed logic is kept intact by
+the separate height adjustment below.
 
-## Intended behavior
+## Confirmed mode behavior
 
 - Laptop mode: the keyboard is closed and the keyboard applet is absent.
 - Tablet mode: Cinnamon's built-in keyboard applet appears on the left side
@@ -47,6 +49,41 @@ No logout is requested by the installer.
 The applet is added to the existing panel list. Other applets keep their
 entries and IDs; the keyboard applet reuses its own instance ID across folds.
 
+## Portrait keyboard height
+
+The owner supplied these live measurements with the keyboard open:
+
+| Element | Width | Height |
+| --- | ---: | ---: |
+| Portrait screen | 768 | 1366 |
+| Reserved keyboard area | 768 | 413 |
+| Keyboard actor | 768 | 176 |
+| Current key grid | 594 | 128 |
+
+The empty outer area is 237 pixels taller than the keyboard. An optional
+per-user Cinnamon extension fits this outer area to the keyboard actor's
+actual height, preserving the bottom edge above the panel. It follows opening,
+rotation and keyboard-actor replacement. It only adjusts bottom-positioned
+keyboards on portrait screens; key dimensions and focus behavior are not
+changed.
+
+```bash
+python3 scripts/install-keyboard-fit.py install
+```
+
+This installer needs no `sudo` and does not patch the working mode helper or
+autorotate script. It installs the extension
+`linux-tablet-keyboard-fit@linux-tablet` under the user's Cinnamon extensions
+directory and enables it through Cinnamon settings. It saves a backup and
+prints a restore command. Disabling the extension restores Cinnamon's native
+area calculation, while keeping the manual keyboard controls.
+
+The geometry adjustment passes automated checks using the supplied dimensions;
+visual confirmation on the tablet is still pending. After installing, close
+and reopen the keyboard in portrait mode and check the gap, typing, rotation
+and return to laptop mode. The original size diagnostic should then show the
+outer area close to the keyboard actor's height.
+
 ## Check on the device
 
 1. Enter tablet mode: one keyboard icon should appear; Onboard should stay
@@ -70,11 +107,15 @@ Onboard behavior if that was present in the backup.
 
 ## Validation and implementation references
 
-Six automated checks cover real Bash mode transitions with simulated sensor
+The original six automated checks cover real Bash mode transitions with simulated sensor
 output, repeated rotation, the earlier no-op Onboard patch, preservation and
 reuse of applet IDs, recovery from backup, rejection of unknown scripts, and
 cleanup of a real child process holding the autorotate lock. They do not test
-the physical display, touch focus or a running Cinnamon session.
+the physical display, touch focus or a running Cinnamon session. Three further
+tests cover the geometry extension, Cinnamon Eval result parsing and preservation
+of unrelated enabled extensions. The geometry scenarios include the measured
+413-to-176 pixel reduction, panel clearance, reopening, both rotation directions,
+new keyboard actors, layout growth, safe exclusions and disabling the extension.
 
 ```bash
 python3 -m unittest discover -s tests -v
