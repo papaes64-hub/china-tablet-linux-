@@ -23,21 +23,25 @@ The main device is the **Intel Celeron N4020** tablet. Its current baseline is
 restored, the system was updated, and the owner confirmed that it works after
 rebooting. Touch input is working with the project's Silead correction stack.
 
-Cinnamon's built-in on-screen keyboard has now been tried and the owner
-prefers it to Onboard. The remaining task is integration with tablet mode:
+The owner has tested the keyboard migration and confirmed that its mode
+switching and manual activation work. The intended interaction is now working:
 
-- **Laptop mode:** hide the keyboard and its panel icon.
-- **Tablet mode:** show a keyboard icon on the panel; tapping it should open
-  or hide the keyboard.
-- **No automatic opening on input focus:** spreadsheet cells in LibreOffice
-  should not repeatedly bring up the keyboard.
+- **Laptop mode:** the on-screen keyboard and its panel icon are hidden.
+- **Tablet mode:** a keyboard icon toggles Cinnamon's native keyboard.
+- **Input focus:** selecting a text field or spreadsheet cell does not need to
+  open the keyboard.
 
-This behavior is the agreed next change, **not a completed feature**. The
-published `scripts/linux-tablet-autorotate` still calls `onboard_start` from
-`set_tablet_mode`, and Onboard still appears when the owner folds the device.
-The installed script needs to be compared with this repository before the
-migration is applied. Reinstalling the current script does not perform that
-migration.
+**Remaining issue:** when the tablet is turned on its side, there is a large
+unused gap in the area reserved for the keyboard; the visible keyboard takes
+roughly half that space. Matching the reserved area to the keyboard geometry
+is the next task.
+
+The migration installer is available in
+[PR #1](https://github.com/papaes64-hub/china-tablet-linux-/pull/1), with
+[installation and checks](https://github.com/papaes64-hub/china-tablet-linux-/blob/1cf0655ba132a63a1f3ecb806b783e361cb5cf08/docs/cinnamon-keyboard.md).
+The `scripts/linux-tablet-autorotate` shipped on `main` still contains the older
+Onboard integration; the migration patches the installed copy. Reinstalling
+that old script would undo the keyboard integration.
 
 Linux Mint documents the redesigned native keyboard in its
 [Cinnamon 6.6 release notes](https://linuxmint.com/rel_zena_whatsnew.php).
