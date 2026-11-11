@@ -85,7 +85,7 @@ def physical_devices():
         name = tokens[1]
         if name == 'AT Translated Set 2 keyboard':
             found['keyboard'] = path
-        elif 'HTIX5288' in name and 'Touchpad' in name:
+        elif 'HTIX5288' in name and 'ID_INPUT_TOUCHPAD=1' in command('udevadm', 'info', '--query=property', '--name=/dev/input/' + Path(path).name).splitlines():
             found['touchpad'] = path
     if set(found) != {'keyboard', 'touchpad'}:
         raise RuntimeError(f'Не найдены клавиатура/тачпад через KWin: {found}')
